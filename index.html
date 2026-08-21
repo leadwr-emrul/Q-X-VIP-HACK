@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+  <meta name="theme-color" content="#000308"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>⚛ Quantum Overlay AI</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     MARKET IFRAME
+══════════════════════════════════════ -->
+<div id="iframe-wrap">
+  <iframe id="market-frame" src="https://market-qx.info/en/trade"
+    title="Market QX" allow="fullscreen" loading="lazy"></iframe>
+  <div id="iframe-fallback" class="hidden">
+    <div class="fb-box">
+      <div class="fb-icon">🌐</div>
+      <h2>Market QX</h2>
+      <p>Browser blocked embed. Open directly:</p>
+      <a href="https://market-qx.info/en/trade" target="_blank" class="fb-btn">Open Platform ↗</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     WS STATUS TOAST
+══════════════════════════════════════ -->
+<div id="ws-toast" class="ws-disconnected">
+  <span id="ws-dot">●</span>
+  <span id="ws-label">Connecting…</span>
+</div>
+
+<!-- ══════════════════════════════════════
+     FLOATING ACTION BUTTON
+══════════════════════════════════════ -->
+<div id="fab" role="button" aria-label="Toggle AI Overlay" tabindex="0">
+  <div class="fab-ring-outer"></div>
+  <div class="fab-core">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83
+               M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+    </svg>
+  </div>
+  <div class="fab-pulse-ring"></div>
+  <!-- Live tick indicator -->
+  <div id="fab-tick" class="hidden"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN OVERLAY WINDOW
+══════════════════════════════════════ -->
+<div id="overlay" class="hidden" role="dialog">
+
+  <!-- ── TITLE BAR ── -->
+  <div id="overlay-titlebar">
+    <div class="tb-left">
+      <span class="tdot tdot-red"   id="btn-ov-close"></span>
+      <span class="tdot tdot-yellow" id="btn-ov-min"></span>
+      <span class="tdot tdot-green"  id="btn-ov-max"></span>
+    </div>
+    <div class="tb-title">
+      <span class="tb-atom">⚛</span>
+      <span>Quantum AI</span>
+      <span class="tb-live" id="tb-live-badge">● LIVE</span>
+    </div>
+    <div class="tb-right">
+      <button class="ib" id="btn-settings-open" title="Settings">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0
+                   01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0
+                   00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65
+                   1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65
+                   1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65
+                   1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0
+                   012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2
+                   2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2
+                   2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51
+                   1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── TIME BAR ── -->
+  <div id="time-bar">
+    <div class="tc">
+      <span class="tlabel">BD TIME</span>
+      <span id="bd-time" class="tval">--:--:--</span>
+    </div>
+    <div class="countdown-col">
+      <span class="tlabel">SIGNAL IN</span>
+      <div id="cd-wrap">
+        <svg viewBox="0 0 40 40" id="cd-svg">
+          <circle class="cd-bg" cx="20" cy="20" r="17"/>
+          <circle class="cd-fg" id="cd-arc" cx="20" cy="20" r="17"
+            stroke-dasharray="106.81" stroke-dashoffset="0"/>
+        </svg>
+        <span id="cd-num">60</span>
+      </div>
+    </div>
+    <div class="tc">
+      <span class="tlabel">ASSET</span>
+      <span id="asset-label" class="tval" style="font-size:9px;color:var(--cyan)">--</span>
+    </div>
+  </div>
+
+  <!-- ── TABS ── -->
+  <div id="tab-bar">
+    <button class="tab active" data-tab="signal">📊 Signal</button>
+    <button class="tab" data-tab="chart">📈 Chart</button>
+    <button class="tab" data-tab="engine">🧠 Engine</button>
+    <button class="tab" data-tab="history">📋 History</button>
+  </div>
+
+  <!-- ── TAB CONTENTS ── -->
+  <div id="overlay-body">
+
+    <!-- ▸ SIGNAL TAB -->
+    <div class="tab-pane active" id="tab-signal">
+
+      <!-- Direction Card -->
+      <div id="signal-panel">
+        <div id="dir-card" class="dir-neutral">
+          <div id="dir-arrow">—</div>
+          <div id="dir-label">WAITING</div>
+          <div id="dir-conf">--</div>
+        </div>
+        <div id="metrics-col">
+          <div class="mrow">
+            <span class="mlabel">Confidence</span>
+            <div class="mbar-wrap"><div class="mbar" id="mb-conf"></div></div>
+            <span class="mval" id="mv-conf">--</span>
+          </div>
+          <div class="mrow">
+            <span class="mlabel">Strength</span>
+            <div class="mbar-wrap"><div class="mbar mbar-str" id="mb-str"></div></div>
+            <span class="mval" id="mv-str">--</span>
+          </div>
+          <div class="mrow">
+            <span class="mlabel">Trend</span>
+            <div class="mbar-wrap"><div class="mbar mbar-trend" id="mb-trend"></div></div>
+            <span class="mval" id="mv-trend">--</span>
+          </div>
+          <div class="mrow">
+            <span class="mlabel">Volatility</span>
+            <div class="mbar-wrap"><div class="mbar mbar-vol" id="mb-vol"></div></div>
+            <span class="mval" id="mv-vol">--</span>
+          </div>
+          <div class="mrow">
+            <span class="mlabel">Risk</span>
+            <div class="risk-wrap" id="risk-dots">
+              <span class="rdot"></span><span class="rdot"></span>
+              <span class="rdot"></span><span class="rdot"></span><span class="rdot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis ID row -->
+      <div id="ameta">
+        <span id="aid">AID: ----</span>
+        <span id="astatus" class="as-idle">⬤ IDLE</span>
+        <span id="data-source" class="ds-label">SIM</span>
+      </div>
+
+      <!-- Price ticker -->
+      <div id="price-ticker">
+        <span class="ptick-label">PRICE</span>
+        <span id="tick-price" class="ptick-val">-.------</span>
+        <span id="tick-change" class="ptick-change">--</span>
+        <span class="ptick-label" style="margin-left:10px">O/H/L/C</span>
+        <span id="tick-ohlc" class="ptick-ohlc">-- / -- / -- / --</span>
+      </div>
+
+    </div><!-- /tab-signal -->
+
+    <!-- ▸ CHART TAB -->
+    <div class="tab-pane" id="tab-chart">
+      <div id="chart-toolbar">
+        <button class="ctb-btn active" data-tf="1">1M</button>
+        <button class="ctb-btn" data-tf="5">5M</button>
+        <button class="ctb-btn" data-tf="15">15M</button>
+        <div class="ctb-spacer"></div>
+        <button class="ctb-btn" id="btn-chart-ma">MA</button>
+        <button class="ctb-btn" id="btn-chart-bb">BB</button>
+        <button class="ctb-btn" id="btn-chart-vol">VOL</button>
+      </div>
+      <canvas id="candle-canvas"></canvas>
+      <canvas id="volume-canvas"></canvas>
+      <div id="chart-crosshair" class="hidden">
+        <div id="ch-info"></div>
+      </div>
+    </div><!-- /tab-chart -->
+
+    <!-- ▸ ENGINE TAB -->
+    <div class="tab-pane" id="tab-engine">
+      <div id="engine-grid">
+        <div class="ec" data-m="trend">
+          <div class="ec-icon">📈</div><div class="ec-name">Trend</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-trend"></div></div>
+          <div class="ec-score" id="es-trend">--</div>
+        </div>
+        <div class="ec" data-m="momentum">
+          <div class="ec-icon">⚡</div><div class="ec-name">Momentum</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-momentum"></div></div>
+          <div class="ec-score" id="es-momentum">--</div>
+        </div>
+        <div class="ec" data-m="ma">
+          <div class="ec-icon">〰️</div><div class="ec-name">MA Cross</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-ma"></div></div>
+          <div class="ec-score" id="es-ma">--</div>
+        </div>
+        <div class="ec" data-m="volatility">
+          <div class="ec-icon">🌊</div><div class="ec-name">Volatility</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-volatility"></div></div>
+          <div class="ec-score" id="es-volatility">--</div>
+        </div>
+        <div class="ec" data-m="candle">
+          <div class="ec-icon">🕯️</div><div class="ec-name">Pattern</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-candle"></div></div>
+          <div class="ec-score" id="es-candle">--</div>
+        </div>
+        <div class="ec" data-m="freq">
+          <div class="ec-icon">🔁</div><div class="ec-name">Frequency</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-freq"></div></div>
+          <div class="ec-score" id="es-freq">--</div>
+        </div>
+        <div class="ec" data-m="bayes">
+          <div class="ec-icon">🧮</div><div class="ec-name">Bayesian</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-bayes"></div></div>
+          <div class="ec-score" id="es-bayes">--</div>
+        </div>
+        <div class="ec" data-m="markov">
+          <div class="ec-icon">🔗</div><div class="ec-name">Markov</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-markov"></div></div>
+          <div class="ec-score" id="es-markov">--</div>
+        </div>
+        <div class="ec" data-m="streak">
+          <div class="ec-icon">🎯</div><div class="ec-name">Streak</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-streak"></div></div>
+          <div class="ec-score" id="es-streak">--</div>
+        </div>
+        <div class="ec" data-m="reversal">
+          <div class="ec-icon">🔄</div><div class="ec-name">Reversal</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-reversal"></div></div>
+          <div class="ec-score" id="es-reversal">--</div>
+        </div>
+        <div class="ec" data-m="rsi">
+          <div class="ec-icon">📉</div><div class="ec-name">RSI</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-rsi"></div></div>
+          <div class="ec-score" id="es-rsi">--</div>
+        </div>
+        <div class="ec" data-m="adaptive">
+          <div class="ec-icon">🧠</div><div class="ec-name">Adaptive</div>
+          <div class="ec-bar-wrap"><div class="ec-bar" id="eb-adaptive"></div></div>
+          <div class="ec-score" id="es-adaptive">--</div>
+        </div>
+      </div>
+    </div><!-- /tab-engine -->
+
+    <!-- ▸ HISTORY TAB -->
+    <div class="tab-pane" id="tab-history">
+      <div id="history-stats">
+        <div class="hstat"><span class="hslabel">Total</span><span id="hs-total" class="hsval">0</span></div>
+        <div class="hstat"><span class="hslabel">UP</span><span id="hs-up" class="hsval" style="color:var(--emerald)">0</span></div>
+        <div class="hstat"><span class="hslabel">DOWN</span><span id="hs-dn" class="hsval" style="color:var(--danger)">0</span></div>
+        <div class="hstat"><span class="hslabel">Source</span><span id="hs-src" class="hsval" style="font-size:9px">--</span></div>
+      </div>
+      <div id="history-list"></div>
+    </div><!-- /tab-history -->
+
+  </div><!-- /overlay-body -->
+
+  <!-- ── SETTINGS PANEL (absolute) ── -->
+  <div id="settings-panel" class="hidden">
+    <div class="sp-header">
+      <span>⚙ Settings</span>
+      <button id="btn-settings-close" class="sp-done">Done</button>
+    </div>
+    <div class="sp-body">
+      <div class="sg-title">🔊 Audio</div>
+      <label class="srow"><span>Voice Alerts</span><input type="checkbox" id="s-voice" class="stoggle" checked/></label>
+      <label class="srow"><span>Auto Speak</span><input type="checkbox" id="s-auto-speak" class="stoggle" checked/></label>
+      <label class="srow"><span>Vibration</span><input type="checkbox" id="s-vibration" class="stoggle" checked/></label>
+      <label class="srow"><span>Volume</span><input type="range" id="s-volume" min="0" max="100" value="80" class="srange"/></label>
+
+      <div class="sg-title" style="margin-top:14px">🎨 Display</div>
+      <label class="srow"><span>Animations</span>
+        <select id="s-animations" class="sselect">
+          <option value="full">Full</option>
+          <option value="reduced">Reduced</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <label class="srow"><span>Opacity</span><input type="range" id="s-opacity" min="60" max="100" value="92" class="srange"/></label>
+      <label class="srow"><span>Candles</span>
+        <select id="s-candle-style" class="sselect">
+          <option value="classic">Classic</option>
+          <option value="hollow">Hollow</option>
+          <option value="bar">OHLC Bar</option>
+        </select>
+      </label>
+      <label class="srow"><span>MA Period</span>
+        <select id="s-ma-period" class="sselect">
+          <option value="7">7</option>
+          <option value="14" selected>14</option>
+          <option value="21">21</option>
+        </select>
+      </label>
+
+      <div class="sg-title" style="margin-top:14px">🌐 Data</div>
+      <label class="srow"><span>Asset</span>
+        <select id="s-asset" class="sselect">
+          <option value="#OTC_BTCUSD">BTC/USD OTC</option>
+          <option value="#OTC_EURUSD">EUR/USD OTC</option>
+          <option value="#OTC_GBPUSD">GBP/USD OTC</option>
+          <option value="EURUSD">EUR/USD</option>
+          <option value="GBPUSD">GBP/USD</option>
+        </select>
+      </label>
+      <label class="srow"><span>WS Reconnect</span><input type="checkbox" id="s-auto-reconnect" class="stoggle" checked/></label>
+    </div>
+  </div>
+
+  <!-- Resize handle -->
+  <div id="resize-handle"></div>
+</div><!-- /overlay -->
+
+<!-- ══════════════════════════════════════
+     CINEMA ANALYSIS LAYER
+══════════════════════════════════════ -->
+<div id="cinema-layer" class="hidden" aria-hidden="true">
+  <canvas id="cinema-canvas"></canvas>
+  <div id="cinema-ui">
+    <div id="cin-logo">⚛ QUANTUM AI</div>
+    <div id="cin-asset"></div>
+    <div id="cin-status">INITIALIZING</div>
+    <div id="cin-prog-wrap">
+      <div id="cin-prog-bar"></div>
+      <span id="cin-prog-num">0%</span>
+    </div>
+    <div id="cin-modules">
+      <span class="cm">Trend</span><span class="cm">Momentum</span>
+      <span class="cm">Bayesian</span><span class="cm">Markov</span>
+      <span class="cm">RSI</span><span class="cm">Adaptive</span>
+    </div>
+    <div id="cin-result" class="hidden">
+      <div id="cin-dir"></div>
+      <div id="cin-conf"></div>
+      <div id="cin-data-note"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
