@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+  <meta name="theme-color" content="#000308"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>⚛ Quantum Overlay AI</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     LAYER 1 — MARKET IFRAME (fullscreen base)
+     sandbox removed so iframe can load fully.
+     target="_self" prevents new tab opening.
+══════════════════════════════════════════ -->
+<div id="iframe-wrap">
+  <iframe
+    id="market-frame"
+    src="about:blank"
+    data-src="https://market-qx.info/en/trade"
+    title="Market QX Trading"
+    allow="fullscreen; scripts; same-origin; forms; popups-to-escape-sandbox"
+    referrerpolicy="no-referrer-when-downgrade"
+    loading="lazy"
+  ></iframe>
+
+  <!-- Shown if iframe is blocked by browser -->
+  <div id="iframe-fallback" class="hidden">
+    <div class="fb-box">
+      <div class="fb-icon">🌐</div>
+      <h2>Market QX</h2>
+      <p>এই ব্রাউজার iframe ব্লক করেছে।<br>Kiwi Browser বা Chrome ব্যবহার করুন।</p>
+      <a href="https://market-qx.info/en/trade" target="_self" class="fb-btn">
+        একই ট্যাবে খুলুন ↗
+      </a>
+      <br/><br/>
+      <button class="fb-btn fb-retry" onclick="retryIframe()">পুনরায় চেষ্টা করুন</button>
+    </div>
+  </div>
+
+  <!-- Loading spinner -->
+  <div id="iframe-loader">
+    <div class="loader-ring"></div>
+    <p>Market QX লোড হচ্ছে…</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LAYER 2 — WS STATUS BADGE (top center)
+══════════════════════════════════════════ -->
+<div id="ws-badge">
+  <span id="ws-dot">●</span>
+  <span id="ws-label">SIM MODE</span>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LAYER 3 — FLOATING ACTION BUTTON
+══════════════════════════════════════════ -->
+<div id="fab" role="button" aria-label="AI Overlay" tabindex="0">
+  <div class="fab-ring-anim"></div>
+  <div class="fab-body">
+    <!-- AI icon -->
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12
+               M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+    </svg>
+  </div>
+  <div class="fab-pulse"></div>
+  <div id="fab-live-dot"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LAYER 4 — AI OVERLAY WINDOW
+══════════════════════════════════════════ -->
+<div id="overlay" class="hidden">
+
+  <!-- Title bar — drag handle -->
+  <div id="ov-titlebar" id="drag-handle">
+    <div class="tb-dots">
+      <span class="dot dot-r" id="btn-close" title="Close"></span>
+      <span class="dot dot-y" id="btn-min"   title="Minimize"></span>
+      <span class="dot dot-g" id="btn-max"   title="Maximize"></span>
+    </div>
+    <div class="tb-title">
+      <span class="tb-atom">⚛</span>
+      <span>Quantum AI</span>
+      <span class="tb-tag" id="live-tag">SIM</span>
+    </div>
+    <button class="tb-icon-btn" id="btn-settings" aria-label="Settings">⚙</button>
+  </div>
+
+  <!-- Time bar -->
+  <div id="time-bar">
+    <div class="time-cell">
+      <span class="tc-label">BD TIME</span>
+      <span id="bd-time" class="tc-val">--:--:--</span>
+    </div>
+    <div class="time-cell" style="align-items:center">
+      <span class="tc-label">SIGNAL IN</span>
+      <div class="ring-wrap">
+        <svg viewBox="0 0 44 44" class="ring-svg">
+          <circle class="ring-bg" cx="22" cy="22" r="18"/>
+          <circle class="ring-fg" id="ring-arc" cx="22" cy="22" r="18"
+                  stroke-dasharray="113.1" stroke-dashoffset="0"/>
+        </svg>
+        <span id="cd-sec">60</span>
+      </div>
+    </div>
+    <div class="time-cell" style="align-items:flex-end">
+      <span class="tc-label">ASSET</span>
+      <span id="asset-name" class="tc-val" style="font-size:9px;color:var(--cyan)">BTC/USD</span>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="tab-bar">
+    <button class="tab active" data-tab="signal">📊 Signal</button>
+    <button class="tab" data-tab="chart">📈 Chart</button>
+    <button class="tab" data-tab="engine">🧠 Engine</button>
+    <button class="tab" data-tab="history">📋 Log</button>
+  </div>
+
+  <!-- Tab content wrapper -->
+  <div id="ov-body">
+
+    <!-- ─── TAB: SIGNAL ─── -->
+    <div class="tab-pane active" id="pane-signal">
+
+      <!-- Big direction display -->
+      <div id="dir-display">
+        <div id="dir-box" class="dir-idle">
+          <div id="dir-arrow">—</div>
+          <div id="dir-word">WAITING</div>
+          <div id="dir-pct">--%</div>
+        </div>
+        <div id="dir-bars">
+          <div class="bar-row">
+            <span class="br-label">Confidence</span>
+            <div class="br-track"><div class="br-fill br-conf" id="br-conf"></div></div>
+            <span class="br-val" id="bv-conf">--</span>
+          </div>
+          <div class="bar-row">
+            <span class="br-label">Strength</span>
+            <div class="br-track"><div class="br-fill br-str" id="br-str"></div></div>
+            <span class="br-val" id="bv-str">--</span>
+          </div>
+          <div class="bar-row">
+            <span class="br-label">Trend</span>
+            <div class="br-track"><div class="br-fill br-trend" id="br-trend"></div></div>
+            <span class="br-val" id="bv-trend">--</span>
+          </div>
+          <div class="bar-row">
+            <span class="br-label">Volatility</span>
+            <div class="br-track"><div class="br-fill br-vol" id="br-vol"></div></div>
+            <span class="br-val" id="bv-vol">--</span>
+          </div>
+          <div class="bar-row">
+            <span class="br-label">Risk</span>
+            <div class="risk-row" id="risk-row">
+              <span class="risk-dot"></span><span class="risk-dot"></span>
+              <span class="risk-dot"></span><span class="risk-dot"></span>
+              <span class="risk-dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta row -->
+      <div id="meta-row">
+        <span id="aid" class="meta-aid">AID: ----</span>
+        <span id="a-status" class="st-idle">⬤ IDLE</span>
+        <span id="src-tag" class="src-sim">SIM</span>
+      </div>
+
+      <!-- Price ticker -->
+      <div id="price-row">
+        <span class="pr-label">PRICE</span>
+        <span id="pr-price">--.------</span>
+        <span id="pr-chg" class="pr-neutral">+0.00%</span>
+        <span class="pr-label">OHLC</span>
+        <span id="pr-ohlc" class="pr-ohlc">--</span>
+      </div>
+
+      <p id="disclaimer">⚠ Statistical analysis only. Not financial advice.</p>
+    </div>
+
+    <!-- ─── TAB: CHART ─── -->
+    <div class="tab-pane" id="pane-chart">
+      <div id="chart-bar">
+        <button class="ctb active" data-tf="1">1M</button>
+        <button class="ctb" data-tf="5">5M</button>
+        <button class="ctb" data-tf="15">15M</button>
+        <div style="flex:1"></div>
+        <button class="ctb" id="toggle-ma">MA</button>
+        <button class="ctb" id="toggle-bb">BB</button>
+        <button class="ctb active" id="toggle-vol">VOL</button>
+      </div>
+      <div id="chart-wrap">
+        <canvas id="candle-canvas"></canvas>
+        <div id="crosshair-tip" class="hidden"></div>
+      </div>
+      <canvas id="vol-canvas"></canvas>
+    </div>
+
+    <!-- ─── TAB: ENGINE ─── -->
+    <div class="tab-pane" id="pane-engine">
+      <div id="engine-grid">
+        <div class="eng-card" data-key="trend">
+          <div class="eng-icon">📈</div><span class="eng-name">Trend</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-trend"></div></div>
+          <span class="eng-score" id="escore-trend">--</span>
+        </div>
+        <div class="eng-card" data-key="momentum">
+          <div class="eng-icon">⚡</div><span class="eng-name">Momentum</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-momentum"></div></div>
+          <span class="eng-score" id="escore-momentum">--</span>
+        </div>
+        <div class="eng-card" data-key="ma">
+          <div class="eng-icon">〰️</div><span class="eng-name">MA Cross</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-ma"></div></div>
+          <span class="eng-score" id="escore-ma">--</span>
+        </div>
+        <div class="eng-card" data-key="volatility">
+          <div class="eng-icon">🌊</div><span class="eng-name">Volatility</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-volatility"></div></div>
+          <span class="eng-score" id="escore-volatility">--</span>
+        </div>
+        <div class="eng-card" data-key="pattern">
+          <div class="eng-icon">🕯️</div><span class="eng-name">Pattern</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-pattern"></div></div>
+          <span class="eng-score" id="escore-pattern">--</span>
+        </div>
+        <div class="eng-card" data-key="volume">
+          <div class="eng-icon">📊</div><span class="eng-name">Volume</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-volume"></div></div>
+          <span class="eng-score" id="escore-volume">--</span>
+        </div>
+        <div class="eng-card" data-key="rsi">
+          <div class="eng-icon">📉</div><span class="eng-name">RSI</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-rsi"></div></div>
+          <span class="eng-score" id="escore-rsi">--</span>
+        </div>
+        <div class="eng-card" data-key="macd">
+          <div class="eng-icon">📐</div><span class="eng-name">MACD</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-macd"></div></div>
+          <span class="eng-score" id="escore-macd">--</span>
+        </div>
+        <div class="eng-card" data-key="stoch">
+          <div class="eng-icon">🎯</div><span class="eng-name">Stoch</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-stoch"></div></div>
+          <span class="eng-score" id="escore-stoch">--</span>
+        </div>
+        <div class="eng-card" data-key="markov">
+          <div class="eng-icon">🔗</div><span class="eng-name">Markov</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-markov"></div></div>
+          <span class="eng-score" id="escore-markov">--</span>
+        </div>
+        <div class="eng-card" data-key="streak">
+          <div class="eng-icon">🔥</div><span class="eng-name">Streak</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-streak"></div></div>
+          <span class="eng-score" id="escore-streak">--</span>
+        </div>
+        <div class="eng-card" data-key="adaptive">
+          <div class="eng-icon">🧠</div><span class="eng-name">Adaptive</span>
+          <div class="eng-bar-bg"><div class="eng-bar" id="ebar-adaptive"></div></div>
+          <span class="eng-score" id="escore-adaptive">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── TAB: HISTORY ─── -->
+    <div class="tab-pane" id="pane-history">
+      <div id="hist-stats">
+        <div class="hs-cell"><span class="hs-label">Total</span><span id="hs-tot" class="hs-val">0</span></div>
+        <div class="hs-cell"><span class="hs-label">UP ↑</span><span id="hs-up" class="hs-val" style="color:var(--up)">0</span></div>
+        <div class="hs-cell"><span class="hs-label">DOWN ↓</span><span id="hs-dn" class="hs-val" style="color:var(--dn)">0</span></div>
+        <div class="hs-cell"><span class="hs-label">Accuracy</span><span id="hs-acc" class="hs-val" style="color:var(--cyan)">--%</span></div>
+      </div>
+      <div id="hist-list"></div>
+    </div>
+
+  </div><!-- /ov-body -->
+
+  <!-- Settings panel (absolute over body) -->
+  <div id="settings-panel" class="hidden">
+    <div class="sp-hdr">
+      <span>⚙ Settings</span>
+      <button id="btn-sp-close">✕ Done</button>
+    </div>
+    <div class="sp-scroll">
+      <div class="sp-group">🔊 Audio</div>
+      <label class="sp-row"><span>Voice</span><input type="checkbox" id="s-voice" class="tog" checked/></label>
+      <label class="sp-row"><span>Auto Speak</span><input type="checkbox" id="s-autospeak" class="tog" checked/></label>
+      <label class="sp-row"><span>Vibrate</span><input type="checkbox" id="s-vibrate" class="tog" checked/></label>
+      <label class="sp-row"><span>Volume</span><input type="range" id="s-volume" min="0" max="100" value="80" class="sp-range"/></label>
+
+      <div class="sp-group" style="margin-top:12px">🎨 Display</div>
+      <label class="sp-row"><span>Animations</span>
+        <select id="s-anim" class="sp-sel"><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></select>
+      </label>
+      <label class="sp-row"><span>Opacity</span><input type="range" id="s-opacity" min="55" max="100" value="92" class="sp-range"/></label>
+      <label class="sp-row"><span>Candle Style</span>
+        <select id="s-cstyle" class="sp-sel"><option value="classic">Classic</option><option value="hollow">Hollow</option><option value="bar">OHLC Bar</option></select>
+      </label>
+      <label class="sp-row"><span>MA Period</span>
+        <select id="s-maperiod" class="sp-sel"><option value="7">7</option><option value="14" selected>14</option><option value="21">21</option><option value="28">28</option></select>
+      </label>
+
+      <div class="sp-group" style="margin-top:12px">🌐 Data</div>
+      <label class="sp-row"><span>Asset</span>
+        <select id="s-asset" class="sp-sel">
+          <option value="#OTC_BTCUSD">BTC/USD OTC</option>
+          <option value="#OTC_EURUSD">EUR/USD OTC</option>
+          <option value="#OTC_GBPUSD">GBP/USD OTC</option>
+          <option value="EURUSD">EUR/USD Live</option>
+          <option value="GBPUSD">GBP/USD Live</option>
+          <option value="USDJPY">USD/JPY Live</option>
+        </select>
+      </label>
+      <label class="sp-row"><span>Auto Reconnect</span><input type="checkbox" id="s-reconnect" class="tog" checked/></label>
+    </div>
+  </div>
+
+  <!-- Resize corner handle -->
+  <div id="resize-corner">
+    <svg width="12" height="12" viewBox="0 0 12 12">
+      <path d="M2 10 L10 2M6 10 L10 6" stroke="rgba(0,229,160,0.5)" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div><!-- /overlay -->
+
+<!-- ══════════════════════════════════════════
+     LAYER 5 — CINEMA ANIMATION
+══════════════════════════════════════════ -->
+<div id="cinema" class="hidden">
+  <canvas id="cin-canvas"></canvas>
+  <div id="cin-ui">
+    <div id="cin-brand">⚛ QUANTUM AI</div>
+    <div id="cin-asset-label"></div>
+    <div id="cin-phase">INITIALIZING</div>
+    <div id="cin-bar-wrap">
+      <div id="cin-bar"></div>
+      <span id="cin-pct">0%</span>
+    </div>
+    <div id="cin-mods">
+      <span class="cmod">Trend</span><span class="cmod">Momentum</span>
+      <span class="cmod">Bayesian</span><span class="cmod">Markov</span>
+      <span class="cmod">RSI+MACD</span><span class="cmod">Adaptive</span>
+    </div>
+    <div id="cin-reveal" class="hidden">
+      <div id="cin-big-arrow"></div>
+      <div id="cin-conf-text"></div>
+      <div id="cin-mode-note"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
